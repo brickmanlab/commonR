@@ -1,0 +1,23 @@
+name: R package CI
+
+on: [push, pull_request]
+
+jobs:
+    build:
+      runs-on: ubuntu-18.04
+      strategy:
+        matrix:
+          R: [ '3.5.3', '3.6.1' ]
+      name: R ${{ matrix.R }} sample
+      steps:
+        - uses: actions/checkout@master
+        - name: Setup R
+          uses: actions/setup-R@v1
+          with:
+            r-version: ${{ matrix.R }}
+        
+        - name: Build package
+          run: R CMD build .
+      
+        - name: Check package
+          run: R CMD check ${{ package }}_{{ package_version}}.tar.gz
