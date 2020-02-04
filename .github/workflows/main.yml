@@ -20,4 +20,4 @@ jobs:
           run: R CMD build .
       
         - name: Check package
-          run: R CMD check ${{ package }}_{{ package_version}}.tar.gz
+          run: R CMD check commonR_0.1.0.tar.gz
