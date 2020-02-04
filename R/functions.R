@@ -3,27 +3,27 @@
 #' Calculate non zero mean of a data frame, matrix or vector. If the parameter \code{by} is applied, mean will be calculated per groups of columns, not rows.
 #' @param x a numerical vector, matrix or data frame.
 #' @param by a vector or list of grouping elements, each as long as the variables in the data frame \code{x}. The elements are coerced to factors before use.
-#' @return Non zero mean of \code{x} or non zero median of groups of columns in \code{x}.
+#' @return Non zero mean of \code{x} or non zero mean of groups of columns in \code{x}.
 #' @examples
 #' vector_test <- c(rep(0,10),1:100)
-#' non_zero_mean(vector_test)
+#' nz_mean(vector_test)
 #' matrix_test <- matrix(c(rep(0,10),1:100),nrow=10)
-#' non_zero_mean(matrix_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
+#' nz_mean(matrix_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
 #' df_test <- as.data.frame(matrix_test)
-#' non_zero_mean(df_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
+#' nz_mean(df_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
 #'
 #' @export
-non_zero_mean <- function(x, by = NULL) {
+nz_mean <- function(x, by = NULL) {
   #Function to calculate the non zero mean of a vector or data frame/matrix.
   #In case of a data frame/matrix, it can be the non zero mean can be calculated by groups of columns using a vector that specify which column belongs to which group
 
-  calculate_non_zero_mean <- function(vector){
+  calculate_nz_mean <- function(vector){
     # Actual function to calculate the non zero mean
     return(mean(vector[vector != 0]))
   }
 
   if (is.vector(x)){
-    return(calculate_non_zero_mean(x))
+    return(calculate_nz_mean(x))
 
     } else if (is.data.frame(as.data.frame(x))){
 
@@ -32,13 +32,13 @@ non_zero_mean <- function(x, by = NULL) {
 
       if (is.vector(by)) {by <- list(by)}
 
-      x <- stats::aggregate(t(x), by, calculate_non_zero_mean)
+      x <- stats::aggregate(t(x), by, calculate_nz_mean)
       rownames(x) <- x$Group.1
       x <- t(x[,-1])
       return(x)
 
     } else {
-      return(calculate_non_zero_mean(x))
+      return(calculate_nz_mean(x))
     }
   }
 }
@@ -52,25 +52,25 @@ non_zero_mean <- function(x, by = NULL) {
 #' @return Non zero median of \code{x} or non zero median of groups of columns in \code{x}.
 #' @examples
 #' vector_test <- c(rep(0,10),1:100)
-#' non_zero_median(vector_test)
+#' nz_median(vector_test)
 #' matrix_test <- matrix(c(rep(0,10),1:100),nrow=10)
-#' non_zero_median(matrix_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
+#' nz_median(matrix_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
 #' df_test <- as.data.frame(matrix_test)
-#' non_zero_median(df_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
+#' nz_median(df_test, by = c(1,2,3,1,2,3,1,2,3,1,2))
 #'
 #' @export
-non_zero_median <- function(x, by = NULL) {
+nz_median <- function(x, by = NULL) {
   #Function to calculate the non zero mean of a vector or data frame/matrix.
   #In case of a data frame/matrix, it can be the non zero mean can be calculated by groups of columns using a vector that specify which column belongs to which group
   #x = data frame, matrix or vector
 
-  calculate_non_zero_median <- function(vector){
+  calculate_nz_median <- function(vector){
     # Actual function to calculate the non zero mean
-    return(mean(vector[vector != 0]))
+    return(stats::median(vector[vector != 0]))
   }
 
   if (is.vector(x)){
-    return(calculate_non_zero_median(x))
+    return(calculate_nz_median(x))
 
   } else if (is.data.frame(as.data.frame(x))){
 
@@ -79,13 +79,13 @@ non_zero_median <- function(x, by = NULL) {
 
       if (is.vector(by)) {by <- list(by)}
 
-      x <- stats::aggregate(t(x), by, calculate_non_zero_median)
+      x <- stats::aggregate(t(x), by, calculate_nz_median)
       rownames(x) <- x$Group.1
       x <- t(x[,-1])
       return(x)
 
     } else {
-      return(calculate_non_zero_median(x))
+      return(calculate_nz_median(x))
     }
   }
 }
