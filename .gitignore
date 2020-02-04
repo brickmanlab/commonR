@@ -1,0 +1,8 @@
+.DS_Store
+.Rproj.user
+.Rhistory
+.RData
+.RDataTmp
+.DS_Store
+*.pdf
+*.Rproj
