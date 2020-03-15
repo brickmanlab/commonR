@@ -17,9 +17,9 @@ msub(x, old, new)
 a vector with new values.
 }
 \description{
-Makes a pair-wise substitions of a vector of values by another vector of values of the same length.
+Makes a pair-wise substitions of a vector of values by another vector of values of same length.
 }
 \examples{
 # Replace 1 for 2, 2 for 3 and 3 for 4.
-msub(1:3,1:3,2:4)
+msub(1:3, 1:3, 2:4)
 }

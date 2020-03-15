@@ -9,13 +9,15 @@ nz_median(x, by = NULL)
 \arguments{
 \item{x}{a numerical vector, matrix or data frame.}
 
-\item{by}{a vector or list of grouping elements, each as long as the variables in the data frame \code{x}. The elements are coerced to factors before use.}
+\item{by}{a vector or list of grouping elements, each as long as the variables in the data frame
+\code{x}. The elements are coerced to factors before use.}
 }
 \value{
 Non zero median of \code{x} or non zero median of groups of columns in \code{x}.
 }
 \description{
-Calculate non zero median of a data frame, matrix or vector. If the parameter \code{by} is applied, median will be calculated per groups of columns, not rows.
+Calculate non zero median of a data frame, matrix or vector. If the parameter \code{by} is
+applied, median will be calculated per groups of columns, not rows.
 }
 \examples{
 vector_test <- c(rep(0,10),1:100)
