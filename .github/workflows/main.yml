@@ -7,7 +7,7 @@ jobs:
       runs-on: ubuntu-18.04
       strategy:
         matrix:
-          R: [ '3.6.1', '3.6.2' ]
+          R: [ '3.6.2' ]
       name: R ${{ matrix.R }} sample
       steps:
         - uses: actions/checkout@v2
@@ -15,6 +15,7 @@ jobs:
           uses: r-lib/actions/setup-r@v1
           with:
             r-version: ${{ matrix.R }}
+
         - name: Setup Tinytex 
           uses: r-lib/actions/setup-tinytex@v1
         
@@ -24,8 +25,28 @@ jobs:
             echo "::set-env name=PACKAGE_VERSION::$(cat DESCRIPTION | grep 'Version:' | cut -d' ' -f2 )"
           shell: bash
 
+        - name: Install linux system dependencies
+          if: runner.os == 'Linux'
+          env:
+            RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
+          run: |
+            Rscript -e "install.packages('remotes')" -e "remotes::install_github('r-hub/sysreqs')"
+            sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
+            sudo -s eval "$sysreqs"
+
+        - name: Install dependencies
+          run: |
+            remotes::install_cran("lintr")
+            remotes::install_bioc("multtest")
+            remotes::install_deps(dependencies = TRUE)
+          shell: Rscript {0}
+
         - name: Build package
           run: R CMD build .
-      
+
+        - name: Lint
+          run: lintr::lint_package()
+          shell: Rscript {0}  
+
         - name: Check package
           run: R CMD check ${{ env.PACKAGE_NAME }}_${{ env.PACKAGE_VERSION }}.tar.gz
