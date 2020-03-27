@@ -3,50 +3,22 @@ name: R package CI
 on: [push, pull_request]
 
 jobs:
-    build:
-      runs-on: ubuntu-18.04
-      strategy:
-        matrix:
-          R: [ '3.6.2' ]
-      name: R ${{ matrix.R }} sample
-      steps:
-        - uses: actions/checkout@v2
-        - name: Setup R
-          uses: r-lib/actions/setup-r@v1
-          with:
-            r-version: ${{ matrix.R }}
+  common-r:
+    runs-on: ubuntu-latest
+    name: Test package with docker
+    container: 
+      image: brickmanlab/common-r:dev
+      options: --user root -v ${{ github.workspace }}:/commonR:rw
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
 
-        - name: Setup Tinytex 
-          uses: r-lib/actions/setup-tinytex@v1
-        
-        - name: Get package name and version
-          run: |
-            echo "::set-env name=PACKAGE_NAME::$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)"
-            echo "::set-env name=PACKAGE_VERSION::$(cat DESCRIPTION | grep 'Version:' | cut -d' ' -f2 )"
-          shell: bash
+      - name: Build package
+        run: R CMD build /commonR
+      
+      - name: Check package
+        run: R CMD check /commonR
 
-        - name: Install linux system dependencies
-          if: runner.os == 'Linux'
-          env:
-            RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
-          run: |
-            Rscript -e "install.packages('remotes')" -e "remotes::install_github('r-hub/sysreqs')"
-            sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
-            sudo -s eval "$sysreqs"
-
-        - name: Install dependencies
-          run: |
-            remotes::install_cran("lintr")
-            remotes::install_bioc("multtest")
-            remotes::install_deps(dependencies = TRUE)
-          shell: Rscript {0}
-
-        - name: Build package
-          run: R CMD build .
-
-        - name: Lint
-          run: lintr::lint_package()
-          shell: Rscript {0}  
-
-        - name: Check package
-          run: R CMD check ${{ env.PACKAGE_NAME }}_${{ env.PACKAGE_VERSION }}.tar.gz
+      - name: Lint package
+        run: cd /commonR && Rscript -e 'lintr::lint_package()'"
