@@ -27,4 +27,4 @@ jobs:
         run: R CMD check ${{ env.PACKAGE_NAME }}_${{ env.PACKAGE_VERSION }}.tar.gz
 
       - name: Lint package
-        run: cd /commonR && Rscript -e 'lintr::lint_package()'"
+        run: cd /commonR && Rscript -e 'lintr::lint_package()'
