@@ -14,11 +14,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Get package name and version
+        run: |
+          echo "::set-env name=PACKAGE_NAME::$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)"
+          echo "::set-env name=PACKAGE_VERSION::$(cat DESCRIPTION | grep 'Version:' | cut -d' ' -f2 )"
+        shell: bash
+
       - name: Build package
-        run: R CMD build /commonR
+        run: cd /commonR && R CMD build .
       
       - name: Check package
-        run: R CMD check /commonR
+        run: R CMD check ${{ env.PACKAGE_NAME }}_${{ env.PACKAGE_VERSION }}.tar.gz
 
       - name: Lint package
         run: cd /commonR && Rscript -e 'lintr::lint_package()'"
