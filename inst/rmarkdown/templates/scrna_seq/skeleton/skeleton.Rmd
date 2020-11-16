@@ -1,0 +1,172 @@
+---
+title: "Default Template"
+author: "Author"
+date: '`r Sys.Date()`'
+knit: (function(inputFile, encoding) { 
+      out_dir <- '../reports/';
+      name <- stringr::str_replace(basename(inputFile), '.Rmd', '.html');
+      rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file=file.path(dirname(inputFile), out_dir, name))})
+output:
+  html_document:
+    number_sections: yes
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    df_print: paged
+---
+
+Code version: `r system("git log -1 --format=oneline | cut -d' ' -f1", intern = TRUE)`
+
+```{r knitr, include = FALSE}
+DOCNAME = knitr::current_input()
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.path     = paste0("cache/", DOCNAME, "/"),
+                      cache.comments = TRUE,
+                      echo           = TRUE,
+                      error          = FALSE,
+                      fig.align      = "center",
+                      fig.path       = paste0("../reports/figures/", DOCNAME, "/"),
+                      #fig.width      = 10,
+                      #fig.height     = 8,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+# Introduction
+
+Here is what I am going to do...
+
+# Load dataset
+
+```{r message=FALSE}
+library(rhdf5)
+library(dplyr)
+library(Seurat)
+library(patchwork)
+random_seed <- 12345
+cc <- readRDS('../genomes/mmu/mouse_cell_cycle_genes.rds')
+counts <- read.csv('data/counts.csv')
+metadata <- read.csv('data/metadata.csv')
+raw_ann <- CreateSeuratObject(counts, meta.data = metadata, min.cells = 3)
+```
+
+## Quality plots
+
+```{r}
+raw_ann[['percent.mito']] <- PercentageFeatureSet(raw_ann, pattern = "^Mt-")
+raw_ann[['percent.ercc']] <- PercentageFeatureSet(raw_ann, pattern = "^ERCC-")
+raw_ann[['percent.ribo']] <- PercentageFeatureSet(raw_ann, pattern = "^Rp[ls]")
+```
+
+```{r, fig.width=10}
+VlnPlot(raw_ann, 
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+        ncol = 4)
+```
+
+```{r}
+FeatureScatter(raw_ann, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "Stage")
+```
+
+## Filtering
+
+```{r}
+print(paste0("Before filtering: ", dim(raw_ann)[2], " cells ",  dim(raw_ann)[1], " genes"))
+```
+
+```{r}
+# Remove ERCC
+raw_ann <- raw_ann[rownames(raw_ann)[!grepl('ERCC-', rownames(raw_ann))], ]
+```
+
+```{r}
+# Visualize nCount_RNA and nFeature_RNA
+```
+
+```{r}
+adata <- subset(raw_ann, subset = 
+                    nFeature_RNA > 42 & nFeature_RNA < 42 & 
+                    nCount_RNA > 42 & nCount_RNA < 42)
+```
+
+```{r}
+# Final filtering step: At least 3 cells need to express a gene
+adata <- CreateSeuratObject(adata@assays$RNA@counts, min.cells = 3, meta.data = adata@meta.data)
+```
+
+## After filtering
+
+```{r}
+print(paste0("After filtering: ", dim(adata)[2], " cells ",  dim(adata)[1], " genes"))
+```
+
+```{r, fig.width=10}
+VlnPlot(adata, 
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+        ncol = 4)
+```
+
+# Normalization
+
+```{r message=FALSE, warning=FALSE}
+adata <- NormalizeData(adata)
+adata <- FindVariableFeatures(adata, selection.method = "vst", nfeatures = 2000)
+```
+
+# Scale
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+adata <- ScaleData(adata, features = rownames(adata))
+```
+
+# Cell Cycle
+
+```{r}
+adata <- CellCycleScoring(adata, s.features = cc$s.genes, g2m.features = cc$g2m.genes, set.ident = TRUE)
+```
+
+# PCA
+
+```{r}
+adata <- RunPCA(adata, features = VariableFeatures(object = adata), seed.use = random_seed)
+DimPlot(adata, reduction = "pca", group.by = c('Stage'))
+```
+
+# Clustering
+
+```{r}
+adata <- FindNeighbors(adata, dims = 1:20)
+adata <- FindClusters(adata, random.seed = random_seed)
+```
+
+# Visualization
+
+```{r}
+adata <- RunTSNE(adata, seed.use = random_seed)
+adata <- RunUMAP(adata, dims = 1:20, seed.use = random_seed)
+```
+
+## UMAP
+
+```{r, fig.width=10}
+p1 <- DimPlot(adata, reduction = "umap", group.by = 'Stage')
+p2 <- DimPlot(adata, reduction = "umap")
+p1 + p2
+```
+
+## TSNE
+
+```{r, fig.width=10}
+p3 <- DimPlot(adata, reduction = "tsne", group.by = 'Stage')
+p4 <- DimPlot(adata, reduction = "tsne")
+p3 + p4
+```
+
+# Session info
+
+```{r session-info, cache = FALSE}
+devtools::session_info()
+```

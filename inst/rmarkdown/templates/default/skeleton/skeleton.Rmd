@@ -1,0 +1,46 @@
+---
+title: "Default Template"
+author: "Author"
+date: '`r Sys.Date()`'
+knit: (function(inputFile, encoding) { 
+      out_dir <- '../reports/';
+      name <- stringr::str_replace(basename(inputFile), '.Rmd', '.html');
+      rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file=file.path(dirname(inputFile), out_dir, name))})
+output:
+  html_document:
+    number_sections: yes
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    df_print: paged
+---
+
+Code version: `r system("git log -1 --format=oneline | cut -d' ' -f1", intern = TRUE)`
+
+```{r knitr, include = FALSE}
+DOCNAME = knitr::current_input()
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.path     = paste0("cache/", DOCNAME, "/"),
+                      cache.comments = TRUE,
+                      echo           = TRUE,
+                      error          = FALSE,
+                      fig.align      = "center",
+                      fig.path       = paste0("../reports/figures/", DOCNAME, "/"),
+                      #fig.width      = 10,
+                      #fig.height     = 8,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+# Introduction
+
+Here is what I am going to do...
+
+# Session info
+
+```{r session-info, cache = FALSE}
+devtools::session_info()
+```

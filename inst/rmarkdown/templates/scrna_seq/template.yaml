@@ -1,0 +1,4 @@
+name: scrna_seq
+description: >
+   scRNAseq template for Brickman's lab projects
+create_dir: TRUE

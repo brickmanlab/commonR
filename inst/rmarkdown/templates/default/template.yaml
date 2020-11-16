@@ -1,0 +1,4 @@
+name: Default
+description: >
+   Default template for Brickman's lab projects
+create_dir: TRUE

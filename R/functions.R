@@ -115,3 +115,26 @@ nz_median <- function(x, by = NULL) {
 msub <- function(x, old, new) {
   return(c(new, x)[match(x, c(old, x))])
 }
+
+
+#' Combine list of vectors filling with NA's
+#'
+#' Combines a list of vectors, filling with NA's to reach the longest vector. Returns a data.frame
+#'
+#' @param x a list of vectors.
+#' @return a data.frame with vectors as columns.
+#' @examples
+#' # Combine vectors a, b, and c:
+#' a <- rnorm(10)
+#' b <- rnorm(5)
+#' c <- rnorm(9)
+#' fill_na(list(a,b,c))
+#' @export
+fill_na <- function(x) {
+  maximum <- max(sapply(x, length))
+  add_na <- function(vector, maximum){
+    return(c(vector, rep(NA,  maximum - length(vector))))
+  } 
+  filled_na <- sapply(x, add_na, maximum)
+  return(as.data.frame(filled_na))
+}
