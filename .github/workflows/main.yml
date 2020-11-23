@@ -16,9 +16,8 @@ jobs:
 
       - name: Get package name and version
         run: |
-          echo "::set-env name=PACKAGE_NAME::$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)"
-          echo "::set-env name=PACKAGE_VERSION::$(cat DESCRIPTION | grep 'Version:' | cut -d' ' -f2 )"
-        shell: bash
+          echo "PACKAGE_NAME=$(echo $GITHUB_REPOSITORY | cut -d'/' -f2)" >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=$(cat DESCRIPTION | grep 'Version:' | cut -d' ' -f2)" >> $GITHUB_ENV
 
       - name: Build package
         run: cd /commonR && R CMD build .
