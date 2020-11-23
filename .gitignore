@@ -2,7 +2,7 @@
 
 # Session Data files
 .RData
-
+.Rhistory
 # User-specific files
 .Ruserdata
 

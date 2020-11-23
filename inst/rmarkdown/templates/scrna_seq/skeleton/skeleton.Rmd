@@ -1,5 +1,5 @@
 ---
-title: "Default Template"
+title: "Single Cell Analysis Template"
 author: "Author"
 date: '`r Sys.Date()`'
 knit: (function(inputFile, encoding) { 
