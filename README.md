@@ -5,8 +5,7 @@ This package contains helper functions and Seurat wrapper for scrna-seq analysis
 ## Installation
 
 ```R
-install.packages("devtools")
-devtools::install_github("brickmanlab/common-r")
+remotes::install_github(repo = "brickmanlab/commonR", ref = "dev")
 ```
 
 ## Authors
