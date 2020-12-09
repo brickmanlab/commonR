@@ -17,6 +17,7 @@ output:
     toc: yes
     toc_float: yes
     df_print: paged
+    dev: png
 ---
 
 ```{r knitr, include = FALSE}
@@ -32,8 +33,7 @@ knitr::opts_chunk$set(autodep        = TRUE,
                       fig.width      = 10,
                       fig.height     = 8,
                       message        = FALSE,
-                      warning        = FALSE,
-                      dev            = c("pdf","png")) # figure output format
+                      warning        = FALSE)
 ```
 
 # Introduction
