@@ -18,4 +18,6 @@ Depends:
 Imports:
   stats,
   Seurat,
-  dplyr
+  dplyr,
+  ggplot2,
+  ggsignif
