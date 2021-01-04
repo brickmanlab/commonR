@@ -1,4 +1,4 @@
 #' Global variables
 NULL
 
-utils::globalVariables(c("cluster", "avg_logFC", "group"))
+utils::globalVariables(c("cluster", "avg_logFC", "group", "value", "variable"))

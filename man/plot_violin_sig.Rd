@@ -2,7 +2,7 @@
 % Please edit documentation in R/plots.R
 \name{plot_violin_sig}
 \alias{plot_violin_sig}
-\title{Various plots}
+\title{Visualize Violin plot with significance}
 \usage{
 plot_violin_sig(seu, gene, conditions = NULL, asterisk = F)
 }
@@ -17,5 +17,5 @@ ones specified with `Idents()` (Default: NULL)}
 \item{asterisk}{Replace p-values with asterisks (Default: False)}
 }
 \description{
-Various plots
+Visualize Violin plot with significance
 }

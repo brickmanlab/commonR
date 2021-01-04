@@ -1,4 +1,4 @@
-#' Various plots
+#' Visualize Violin plot with significance
 #'
 #' @importFrom dplyr "%>%"
 #' @param seu Seurat object
@@ -35,4 +35,32 @@ plot_violin_sig <- function(seu, gene, conditions=NULL, asterisk=F) {
     labs(x = gene, y = '')
   
   return (p)
+}
+
+#' Visualize gene expression using boxplot
+#' 
+#' @importFrom dplyr "%>%" filter
+#' @param seu Seurat object
+#' @param features Genes of interest
+#' @param slot Which matrix to use (Default: 'data')
+#' @import ggplot2 reshape2
+#' 
+#' @export
+plot_boxplot <- function(seu, features = NULL, slot = 'data') {
+  mat <- Seurat::GetAssayData(seu, slot = slot) %>% as.data.frame
+  clusters <- as.vector(unique(Seurat::Idents(seu)))
+  genes <- intersect(rownames(seu), features)
+  df <- NULL
+  for (cluster in clusters) {
+    cells <- rownames(seu@meta.data %>% filter(get(by) == cluster))
+    for (gene in genes) {
+      gene_exp <- reshape2::melt(mat[gene, cells])
+      gene_exp$variable <- gene
+      gene_exp$cluster <- cluster
+      df <- rbind(df, gene_exp)
+    }
+  }
+  ggplot(df, aes(x=variable, y=value, fill=cluster)) +
+    geom_boxplot() +
+    xlab("Genes") + ylab("Gene Expression")
 }
