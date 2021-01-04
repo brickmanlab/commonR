@@ -52,7 +52,7 @@ plot_boxplot <- function(seu, features = NULL, slot = 'data') {
   genes <- intersect(rownames(seu), features)
   df <- NULL
   for (cluster in clusters) {
-    cells <- rownames(seu@meta.data %>% filter(get(by) == cluster))
+    cells <- rownames(data.frame(by = Seurat::Idents(seu)) %>% filter(by == cluster))
     for (gene in genes) {
       gene_exp <- reshape2::melt(mat[gene, cells])
       gene_exp$variable <- gene
