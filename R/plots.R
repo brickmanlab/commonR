@@ -64,3 +64,27 @@ plot_boxplot <- function(seu, features = NULL, slot = 'data') {
     geom_boxplot() +
     xlab("Genes") + ylab("Gene Expression")
 }
+
+#' Visualize cellular proportion 
+#' 
+#' @importFrom dplyr "%>%" count group_by
+#' @param seu Seurat object
+#' @param group.by Column name from metadata
+#' @import ggplot2
+#' 
+#' @export
+plot_proportion_bar <- function(seu, group.by = NULL) {
+  df <- data.frame(
+    cluster = as.vector(Seurat::Idents(seu)), 
+    group = as.factor(seu@meta.data[[group.by]])
+  )
+  df <- df %>% group_by(cluster, group) %>% count(name = 'value')
+  
+  plt <- ggplot(data=df, aes(x=cluster, y=value, fill=group)) +
+    geom_bar(stat='identity', position="fill") +
+    scale_y_continuous(name = 'Cellular proportion (%)', labels = seq(0, 100, 25)) +
+    xlab('') +
+    guides(fill=guide_legend(group.by))
+  
+  return(plt)
+}
