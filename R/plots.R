@@ -70,15 +70,20 @@ plot_boxplot <- function(seu, features = NULL, slot = 'data') {
 #' @importFrom dplyr "%>%" count group_by
 #' @param seu Seurat object
 #' @param group.by Column name from metadata
+#' @param order Specify manual order of x-axis
 #' @import ggplot2
 #' 
 #' @export
-plot_proportion_bar <- function(seu, group.by = NULL) {
+plot_proportion_bar <- function(seu, group.by = NULL, order = NULL) {
   df <- data.frame(
     cluster = as.vector(Seurat::Idents(seu)), 
     group = as.factor(seu@meta.data[[group.by]])
   )
   df <- df %>% group_by(cluster, group) %>% count(name = 'value')
+  
+  if (!is.null(order)) {
+    df$cluster <- factor(df$cluster, levels = order)
+  }
   
   plt <- ggplot(data=df, aes(x=cluster, y=value, fill=group)) +
     geom_bar(stat='identity', position="fill") +

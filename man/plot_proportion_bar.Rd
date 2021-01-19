@@ -4,12 +4,14 @@
 \alias{plot_proportion_bar}
 \title{Visualize cellular proportion}
 \usage{
-plot_proportion_bar(seu, group.by = NULL)
+plot_proportion_bar(seu, group.by = NULL, order = NULL)
 }
 \arguments{
 \item{seu}{Seurat object}
 
 \item{group.by}{Column name from metadata}
+
+\item{order}{Specify manual order of x-axis}
 }
 \description{
 Visualize cellular proportion
