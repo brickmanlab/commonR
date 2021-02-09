@@ -1,0 +1,4 @@
+name: ChIPseq
+description: >
+   Template for downstream analysis of ChIPseq data
+create_dir: TRUE

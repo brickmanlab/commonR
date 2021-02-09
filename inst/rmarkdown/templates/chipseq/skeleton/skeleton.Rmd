@@ -1,0 +1,329 @@
+---
+title: "ChIPseq Template"
+author: "Author"
+date: '`r Sys.Date()`'
+knit: (function(inputFile, encoding) { 
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        output_format='all',
+                        output_dir='../reports/')})
+output:
+  # To create PDF report, uncomment below
+  #pdf_document:
+  #  toc: yes
+  html_document:
+    number_sections: yes
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    df_print: paged
+    dev: png
+---
+
+```{r knitr, include = FALSE}
+DOCNAME = knitr::current_input()
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.path     = paste0("cache/", DOCNAME, "/"),
+                      cache.comments = TRUE,
+                      echo           = TRUE,
+                      error          = FALSE,
+                      fig.align      = "center",
+                      fig.path       = paste0("../reports/figures/", DOCNAME, "/"),
+                      fig.width      = 10,
+                      fig.height     = 8,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+# Introduction
+
+This is a ChIPseq analysis template using DiffBind and some custom modifications
+
+# Libraries
+```{r, message=FALSE, warning=FALSE, error=FALSE}
+library(ggplot2)
+library(cowplot)
+library(DiffBind)
+library(ChIPseeker)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(GenomicRanges)
+library(readxl)
+library(readr)
+```
+
+
+# Load data
+
+An excel or csv file will provide all the information needed to load the data. See ?dba() for an explanation of the each column.
+
+NOTE: Ideally, the reference samples should be ones in the bottom of the file. 
+
+```{r}
+# csv file
+diffbind_sample_sheet <- read_csv("../data/diffbind_sample_sheet.csv")
+# excel file
+#diffbind_sample_sheet <- read_xls("../data/diffbind_sample_sheet.xlsx")
+
+head(diffbind_sample_sheet)
+```
+
+We now load the data as a diffbind object. It can give some warnings depending of the number of columns used.
+```{r}
+samples <- dba(sampleSheet=diffbind_sample_sheet)
+```
+
+# Occupancy heatmap
+If you used a peak caller like MACS2, we can generate a correlation heatmap which gives an
+initial clustering of the samples using the cross-correlations of each row of the binding matrix.
+Additionally, we can make a PCA plot based on the same information.
+```{r}
+dba.plotHeatmap(samples)
+dba.plotPCA(samples,DBA_CONDITION,label=DBA_ID)
+```
+# Blacklisting
+In the newer versions of R and DiffBind (> 3.0), peaks may be filtered based on published blacklists of region known to be problematic, 
+as well as custom greylists derived from control track specific to the experiment. 
+The regions tend to be ones with a high degree of repeats or unusual base concentrations. However, if one uses MACS2 or common peakcallers, 
+this problem is usually avoided and can be skipped.
+
+```{r}
+dba.blacklist(tamoxifen, blacklist=DBA_BLACKLIST_MM10, greylist=FALSE)
+```
+
+# Consensus peakset
+Since there can be a lot of variation between replicates, it is usually helpful to identify a consensus peakset per condition. 
+We can have an initial look at the common peaksets using Venn diagrams. The information of each sample is saved inside the object "masks". 
+This object contains several factor levels for all the metadata
+
+```{r}
+samples$masks
+```
+
+## Venn diagram of consensus
+We can see how many peaks are overlapping in the different replicates
+```{r, fig.width= 7, fig.height=7}
+dba.plotVenn(samples, samples$masks$your_mask_1)
+dba.plotVenn(samples, samples$masks$your_mask_2)
+```
+
+## Make consensus peaks for conditions
+Now that we have seen the overlaps, we can calculate the consensus peakset per condition (in this case, time) by using dba.peakset(). 
+We use consensus = -DBA_REPLICATE which indicates that we want to remove replicate factor (see ?dba.peakset() for more details). 
+minOverlap will offer you control the number of samples that should intersect to be considered "consensus", e.g.:
+- minOverlap = 2, means that at least 2 samples should intersect
+- minOverlap = 1, means that 1 sample should have it (that is, all peaks)
+- minOverlap = 0.66 means that 66% of the total number of samples should intersect
+- minOVerlap = 0.99 means that only peaks in all samples will be considered consensus
+
+```{r}
+# consensus between replicates at 0h and at 2h separately (-DBA_REPLICATE)
+samples_consensus <- dba.peakset(samples, consensus=-DBA_REPLICATE, minOverlap=0.99)
+
+# We specify here to use all peaks so it is not the consensus between 2h and 0h.
+samples_consensus <- dba(samples_consensus, mask=samples_consensus$masks$Consensus,
+                           minOverlap=1)
+```
+
+We can see that the number of peaks (Intervals) in each consensus matches the Venn diagrams numbers.
+```{r}
+samples_consensus
+```
+
+We can save the consensus peaks using bRetrieve=TRUE. Note that this will be the union of the consensus peaks for 2h and 0h
+```{r}
+consensus_peaks <- dba.peakset(samples_consensus, bRetrieve=TRUE)
+consensus_peaks
+#write.table(as.data.frame(consensus_peaks)[,c("seqnames","start","end")], 
+#            file = "your_path/consensus_peaks.tsv", 
+#            sep = "\t", row.names = F, col.names = F, quote = F)
+```
+
+# Read counts
+By default, the peaks in the consensus peakset are re-centered and
+trimmed based on calculating their summits (point of greatest read overlap) in order
+to provide more standardized peak intervals. The final result of counting is a binding
+affinity matrix containing a read count for each sample at every consensus binding
+site, whether or not it was identified as a peak in that sample. With this matrix, the
+samples can be re-clustered using affinity, rather than occupancy, data. The binding
+affinity matrix is used for QC plotting as well as for subsequent differential analysis.
+
+NOTE: this step takes extremely long for some reason. In newer packages it should be faster, but I either have memory issues or it takes forever. 
+You could use bed files from the consensus peakset and the BAM files and create individual count matrixes using bedtools multicov. 
+Then the counts can be loaded at the beginning of the script using the "counts" column (see ?dba() for more details)
+
+```{r}
+samples <- dba.count(samples, peaks = consensus_peaks, bParallel = T)
+```
+
+# Normalizing data
+(DiffBind version > 3.0)
+Normalization of experimental data is particularly important in ChIP-seq (and ATAC-seq) analysis, 
+and may require more careful consideration than needed for RNA-seq analysis. 
+This is because the range of ChIP-seq experiments covers more cases than RNA-seq, 
+which usually involve a similar set of possible expressed genes and/or transcripts, many of which are not expected to significantly change expression. 
+ChIP, ATAC, and similar enrichment-based sequencing data may not follow the assumptions inherent in popular methods for normalizing
+RNA-seq data, as well as exhibiting different types of efficiency and other biases. The default method of normalization is by library size, 
+without making any assumptions on the data.
+
+```{r}
+samples <- dba.normalize(samples)
+```
+
+## Heatmaps and PCA plot after normalization
+We can do a correlation heatmap and a PCA plot after counting and normalize the data
+```{r}
+dba.plotHeatmap(samples)
+dba.plotPCA(samples)
+```
+
+# Differentially bound regions
+We use the functions dba.contrast and dba.analyze to perform DBA. We can use categories to generate the comparisons automatically. 
+We can also reorder here the order of the factors to specify which condition is the reference one (DiffBind version > 3.0)
+```{r}
+samples <- dba.contrast(samples, categories=DBA_CONDITION, minMembers = 2,  reorderMeta=list(Condition="Control"))
+
+samples <- dba.analyze(samples, method = DBA_DESEQ2)
+```
+
+
+Now we can check the contrasts analysed using dba.show. This is quite relevant if we have more conditions than 1 (2v0 in our case). 
+The argument contrast of dba.report() indicates which comparison from dba.show() is going to perform.
+```{r}
+contrasts <- dba.show(samples, bContrasts = T)
+contrasts
+```
+
+You can make again PCA plots and heatmaps based only on the differentially bound sites (FDR or adj-pvale > th)
+```{r}
+dba.plotHeatmap(samples, contrast = 1, th = 0.05)
+```
+
+With dba.report we create a final table with the DB peaks.
+We can select fold = 0 and th = 1 to return all peaks. Then we can filter them as we wish.
+```{r}
+report <- dba.report(samples, contrast = 1, method = DBA_DESEQ2, fold = 0, th = 1)
+```
+
+# Custom modifications
+There are several things that I do not like from DiffBind. For example, most plots are quite ugly in my opinion.
+
+## LogFoldChange
+I do not really like how DiffBind shows the fold change. In my opinion, "Fold" is a ratio (e.g., 2 times more, half of binding, etc.), 
+but DiffBind shows a substraction. We can add a column with this info. Normally, the data should not have negative numbers (DiffBind > 3.0), 
+so I have put them as 0, just in case.
+
+```{r}
+report$Conc_2h[report$Conc_2h < 0] = 0
+report$Conc_0h[report$Conc_0h < 0] = 0 
+report$LFC <- log2((report$Conc_2h)/(report$Conc_0h))
+```
+
+## Volcano plot
+Create a column that has "significance" value
+```{r}
+LogFC <- 1
+adj_p <- 0.05
+report <- data.frame(report)
+report$Sig <- "No"
+report$Sig[(abs(report$LFC) > LogFC) & (report$FDR < adj_p)] <- "Yes"
+```
+
+Custom volcano ggplot
+```{r}
+ggplot(report) + geom_point(aes(x = LFC, y = -log10(FDR), color = Sig)) + 
+  labs(x = "Log2 Fold Change", y = "-log10(adjusted p-value)", color ="Significant",
+       title = "Volcano plot 2h vs 0h", subtitle = paste0("Nº analysed peaks = ",nrow(report),
+                                                          "\nNº significant peaks = ", sum(report$Sig == "Yes"),
+                                                          "\nAbsolute (LFC) > 1, adjusted p-value < 0.05") )+
+  geom_hline(yintercept = -log10(adj_p),linetype ="dashed") + geom_vline(xintercept = c(-LogFC,LogFC), linetype = "dashed") + 
+  theme_bw() 
+```
+The dots that are on the side mean that they are Infinite or -Infinite. This means that either there were no counts at 0h or at 2h.
+
+## Retrieve significant peaks
+```{r}
+#Significant peaks
+sig_peaks <- report[report$Sig == "Yes",]
+UP_sig_peaks <- sig_peaks[sig_peaks$LFC > LogFC]
+DOWN_sig_peaks <- sig_peaks[sig_peaks$LFC < -LogFC]
+
+#Non significant peaks
+nonsig_peaks <- report[report$Sig == "No",]
+```
+
+# Annotation
+We can annotate peaksets using ChIPseeker. First we need to load out annotation file and transform our peaksets from data.frame to GRanges
+```{r}
+txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene
+sig_peaks <- GRanges(sig_peaks)
+
+peakAnno <- annotatePeak(sig_peaks, tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Mm.eg.db")
+```
+
+Now we have an object that can be used to plot annotation information using the same package
+```{r}
+#Pie chart
+plotAnnoPie(peakAnno)
+
+#Bar plot
+plotAnnoBar(peakAnno)
+
+#Venn diagram in the form of pie chart if there are overlaps between annotations
+vennpie(peakAnno)
+
+#upset plots for full annotation overlap
+upsetplot(peakAnno)
+upsetplot(peakAnno, vennpie=TRUE) # You can combine both!
+```
+
+There are options to visualize distribution of TF-binding loci relative to TSS
+
+```{r}
+plotDistToTSS(peakAnno,
+              title="Distribution of transcription factor-binding loci\nrelative to TSS")
+```
+
+There are also options to do functional analysis! Please see the package vignette: vignette("ChIPseeker")
+Finally, we can do comparisons between peaksets by merging them into a list and use the same functions
+
+```{r}
+peakAnnoList <- list(UP_sig_peaks, DOWN_sig_peaks, nonsig_peaks)
+peakAnnoList <- lapply(peakAnnoList, GRanges)
+peakAnnoList <- lapply(peakAnnoList, annotatePeak, TxDb=txdb,
+                       tssRegion=c(-3000, 3000), verbose=FALSE)
+```
+
+Now that we have our lists, we can get comparative plots
+```{r}
+plotAnnoBar(peakAnnoList)
+plotDistToTSS(peakAnnoList)
+```
+
+## Extract annotations
+The annotation dataset is keep under "@anno" and can be saved as a normal data.frame
+```{r}
+sig_peaks <- data.frame(sig_peaks@anno)
+#write.table(sig_peaks, file = "your_path/annotated_sig_peaks.tsv", col.names = T, row.names = F, sep = "\t", quote = F)
+```
+
+
+
+# Save objects
+I recommend saving this object after counting to avoid rerunning it. Count and contrast steps take a very long time to run.
+We can use either dba.save() and dba.load() or saveRDS() and readRDS() for this purpose. However, saveRDS and readRDS are R version dependent, so be careful! 
+I do not know if dba.save and dba.load will work in between versions (it seems it uses rds in the background)
+```{r}
+#dba.save(samples, file = "file_name", dir = "path_to_save")
+#samples <- dba.load(file="file_name", dir="path_to_load")
+#saveRDS(samples, file = "path_to_save/filename.rds")
+#samples <- readRDS(file = "path_to_load/filename.rds")
+```
+
+
+# Session info
+
+```{r session-info, cache = FALSE}
+devtools::session_info()
+```
