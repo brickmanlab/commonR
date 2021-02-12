@@ -5,13 +5,21 @@ This package contains helper functions and Seurat wrapper for scrna-seq analysis
 ## Installation
 
 ```R
-remotes::install_github(repo = "brickmanlab/commonR", tag = "0.1.0")
+remotes::install_github(repo = "brickmanlab/commonR")
 ```
 
-## From dev
+## Installing cookiecutter
 
-```R
-remotes::install_github(repo = "brickmanlab/commonR", ref = "dev")
+```bash
+conda create --name cookiecutter cookiecutter
+```
+
+## Starting a new project
+
+```bash
+conda activate cookiecutter
+cookiecutter https://github.com/brickmanlab/project-template
+# RStudio: File -> New File -> RMarkdown -> From Template
 ```
 
 ## Authors
