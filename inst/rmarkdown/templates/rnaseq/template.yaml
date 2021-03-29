@@ -1,0 +1,4 @@
+name: rnaseq
+description: >
+   An RNAseq analysis using DESeq2
+create_dir: FALSE
