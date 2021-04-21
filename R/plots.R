@@ -93,3 +93,24 @@ plot_proportion_bar <- function(seu, group.by = NULL, order = NULL) {
   
   return(plt)
 }
+
+#' Get pretty color pallet
+#' 
+#' @param n Number of colors
+#' @return List of colors (maximum supported: 15). If higher number is requested
+#' function returns and empty list
+#' @export
+get_pallet <- function(n = NULL) {
+  colors <- c('#97918C', '#11839A', '#8E8E0D', '#E4B32E', '#C4651C', '#BD4306', 
+              '#379F4C', '#2096B3', '#948170', '#B22222', '#F2A082', '#CE7E41', 
+              '#FAA198', '#BDB76B', '#FFE4C4')
+  
+  if (is.null(n))
+    return (colors)
+  
+  if (n < length(colors)) {
+    return (colors[0:n])
+  }
+  
+  return (c())
+}

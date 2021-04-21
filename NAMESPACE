@@ -2,6 +2,7 @@
 
 export(fill_na)
 export(get_all_markers)
+export(get_pallet)
 export(msub)
 export(nz_mean)
 export(nz_median)
