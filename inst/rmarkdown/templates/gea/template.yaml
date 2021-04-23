@@ -1,0 +1,4 @@
+name: GEA
+description: >
+   Gene Enrichment Analysis template using our gene marker database
+create_dir: FALSE

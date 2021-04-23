@@ -1,0 +1,158 @@
+---
+title: "Gene Enrichment Template"
+author: "Author"
+date: '`r Sys.Date()`'
+knit: (function(inputFile, encoding) { 
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        output_format='all',
+                        output_dir='../reports/')})
+output:
+  # To create PDF report, uncomment below
+  #pdf_document:
+  #  toc: yes
+  html_document:
+    number_sections: yes
+    theme: yeti
+    toc: yes
+    toc_float: yes
+    df_print: paged
+    dev: png
+---
+
+```{r knitr, include = FALSE}
+DOCNAME = knitr::current_input()
+knitr::opts_chunk$set(autodep        = TRUE,
+                      cache          = FALSE,
+                      cache.path     = paste0("cache/", DOCNAME, "/"),
+                      cache.comments = TRUE,
+                      echo           = TRUE,
+                      error          = FALSE,
+                      fig.align      = "center",
+                      fig.path       = paste0("../reports/figures/", DOCNAME, "/"),
+                      fig.width      = 10,
+                      fig.height     = 8,
+                      message        = FALSE,
+                      warning        = FALSE)
+```
+
+# Introduction
+This is a Gene Enrichment Analysis (GEA) template. The purpose of this GEA is to use a database of gene markers for different celltypes found in different single cell RNA-seq experiments.
+
+It uses the GeneOverlap R package to perform statistical analysis of overlaps between lists of genes of interest and the database. The final output should be similar to a GOterm analysis plot.
+
+# Load libraries and marker database
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(RColorBrewer)
+library(GeneOverlap)
+library(plotly)
+library(commonR)
+random_seed <- 12345
+
+marker_database <- marker_database
+marker_database$genes <- tolower(marker_database$genes)
+marker_database$genes <- strsplit(marker_database$genes, split = ",")
+
+database_lists <- marker_database$genes
+names(database_lists) <- paste(marker_database$publication, "|",marker_database$cluster)
+data(GeneOverlap)
+
+genomic_size <- gs.RNASeq
+```
+
+# Load your gene lists
+```{r}
+PC_list <- lapply(list.files("/Volumes/danstem/Brickman/Jose/Teresa/gene_ranking/data/pc_genes", full.names = T), FUN = function(x){
+  return(tolower(read.csv(x, header = F)$V1))
+  })
+
+names(PC_list) <- gsub(pattern = ".txt", replacement = "", x = list.files("/Volumes/danstem/Brickman/Jose/Teresa/gene_ranking/data/pc_genes/"))
+```
+
+
+# Gene Enrichment Analysis
+
+We do pairwise overlaps for both gene lists
+```{r}
+gom.obj <- newGOM(gsetA = PC_list, gsetB = database_lists, genome.size = genomic_size)
+gom.obj
+```
+
+Now we extract the information from the object
+```{r}
+pvals <- getMatrix(gom.obj, name = "pval")
+odds <- getMatrix(gom.obj, name = "odds.ratio")
+log_odds <- log2(odds)
+```
+
+# Heatmap plot
+
+## Heatmap based on pvalue
+
+```{r}
+melt_pvals <- melt(pvals)
+colnames(melt_pvals) <- c("PC_lists","Database_lists","value")
+
+melt_pvals$Study <- unlist(lapply(strsplit(as.character(melt_pvals$Database_lists), split =  "|", fixed = T), "[", 1))
+melt_pvals$Study <- trimws(melt_pvals$Study)
+
+melt_pvals$cell_type <- unlist(lapply(strsplit(as.character(melt_pvals$Database_lists), split =  "|", fixed = T), "[", 2))
+melt_pvals$cell_type <- trimws(melt_pvals$cell_type)
+```
+
+```{r, fig.height=10, fig.width=5}
+ggplot(melt_pvals) + geom_tile(aes(x = PC_lists, y = cell_type, fill = -log10(value)), color = "white") + 
+  #coord_equal() + # Makes the heatmap tiles square, not compatible with facet_grid
+  labs(x = "PC gene lists", y = "Database gene lists", fill = "-log10(p-value)") +
+  scale_fill_distiller(palette = "Spectral") +
+  facet_grid(Study~., scales = "free", space = "free_y") +
+  theme(axis.text.x = element_text(angle = 90), strip.text.y = element_text(angle = 0)) 
+```
+
+## Heatmap based on logs odds ratio
+
+```{r}
+melt_logodds <- melt(log_odds)
+colnames(melt_logodds) <- c("PC_lists","Database_lists","value")
+
+melt_logodds$Study <- unlist(lapply(strsplit(as.character(melt_logodds$Database_lists), split =  "|", fixed = T), "[", 1))
+melt_logodds$Study <- trimws(melt_logodds$Study)
+
+melt_logodds$cell_type <- unlist(lapply(strsplit(as.character(melt_logodds$Database_lists), split =  "|", fixed = T), "[", 2))
+melt_logodds$cell_type <- trimws(melt_logodds$cell_type)
+```
+
+```{r, fig.height=10, fig.width=5}
+ggplot(melt_logodds) + geom_tile(aes(x = PC_lists, y = cell_type, fill = -log10(value)), color = "white") + 
+  #coord_equal() + # Makes the heatmap tiles square, not compatible with facet_grid
+  labs(x = "PC gene lists", y = "Database gene lists", fill = "log2(odds ratio)") +
+  scale_fill_distiller(palette = "Spectral") +
+  facet_grid(Study~., scales = "free", space = "free_y") +
+  theme(axis.text.x = element_text(angle = 90), strip.text.y = element_text(angle = 0))
+```
+
+# Dotplot with both odds ratio and pvalue
+
+```{r}
+melt_pvals$odds <- melt_logodds$value
+```
+
+```{r, fig.height=15, fig.width=6}
+melt_pvals$odds[!is.finite(melt_pvals$odds)] <- NA
+limit <- max(abs(melt_pvals$odds), na.rm = T) * c(-1, 1)
+
+ggplot(melt_pvals) + geom_point(aes(x = factor(PC_lists), y = factor(cell_type), color = odds, size = -log10(value) )) + 
+  labs(x = "PC gene lists", y = "Database gene lists", color = "log2(odds ratio)", size = "-log10(p-value)") +
+  scale_color_distiller(palette = "RdBu", direction = -1, limit = limit) + scale_size_continuous(range = c(1,5)) +
+  facet_grid(Study~., scales = "free", space = "free", drop = T) + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90), strip.text.y = element_text(angle = 0))
+```
+
+# Session info
+
+```{r session-info, cache = FALSE}
+devtools::session_info()
+```
