@@ -11,7 +11,7 @@ remotes::install_github(repo = "brickmanlab/commonR")
 ## Installing cookiecutter
 
 ```bash
-conda create --name cookiecutter cookiecutter
+conda create --name cookiecutter cookiecutter==1.7.2
 ```
 
 ## Starting a new project
