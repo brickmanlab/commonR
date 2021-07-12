@@ -30,8 +30,8 @@ knitr::opts_chunk$set(autodep        = TRUE,
                       error          = FALSE,
                       fig.align      = "center",
                       fig.path       = paste0("../reports/figures/", DOCNAME, "/"),
-                      fig.width      = 10,
-                      fig.height     = 8,
+                      fig.width      = 8,
+                      fig.height     = 5,
                       message        = FALSE,
                       warning        = FALSE)
 ```
@@ -40,74 +40,93 @@ knitr::opts_chunk$set(autodep        = TRUE,
 
 Here is what I am going to do...
 
-# Load dataset
+# Load libraries
 
 ```{r message=FALSE}
 library(rhdf5)
-library(dplyr)
+library(tidyverse)
 library(Seurat)
 library(patchwork)
 random_seed <- 12345
+```
+
+
+```{r message=FALSE}
 cc <- readRDS('../genomes/mmu/mouse_cell_cycle_genes.rds')
 counts <- read.csv('data/counts.csv')
 metadata <- read.csv('data/metadata.csv')
 raw_ann <- CreateSeuratObject(counts, meta.data = metadata, min.cells = 3)
 ```
 
-## Quality plots
+# QC
 
+## Before filtering
 ```{r}
 raw_ann[['percent.mito']] <- PercentageFeatureSet(raw_ann, pattern = "^Mt-")
 raw_ann[['percent.ercc']] <- PercentageFeatureSet(raw_ann, pattern = "^ERCC-")
 raw_ann[['percent.ribo']] <- PercentageFeatureSet(raw_ann, pattern = "^Rp[ls]")
 ```
 
-```{r, fig.width=10}
-VlnPlot(raw_ann, 
+```{r QC_before_filtering, fig.width=12, fig.height=10}
+p1 <- VlnPlot(raw_ann, 
         features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
         ncol = 4)
-```
+p2 <- FeatureScatter(raw_ann, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "Stage")
 
-```{r}
-FeatureScatter(raw_ann, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "Stage")
+CombinePlots(plots = list(p1,p2), ncol = 1)
 ```
-
-## Filtering
 
 ```{r}
 print(paste0("Before filtering: ", dim(raw_ann)[2], " cells ",  dim(raw_ann)[1], " genes"))
 ```
 
+## Filtering
+
+Remove ERCC if necessary
 ```{r}
-# Remove ERCC
 raw_ann <- raw_ann[rownames(raw_ann)[!grepl('ERCC-', rownames(raw_ann))], ]
 ```
 
+Remove outlier cells using quantiles and cells with more than 5% of mitochondrial counts
+
 ```{r}
-# Visualize nCount_RNA and nFeature_RNA
+feature_max <- quantile(raw_ann$nFeature_RNA, probs = 0.99)
+feature_min <- quantile(raw_ann$nFeature_RNA, probs = 0.01)
+count_max <- quantile(raw_ann$nCount_RNA, probs = 0.99)
+count_min <- quantile(raw_ann$nCount_RNA, probs = 0.01)
 ```
 
 ```{r}
 adata <- subset(raw_ann, subset = 
-                    nFeature_RNA > 42 & nFeature_RNA < 42 & 
-                    nCount_RNA > 42 & nCount_RNA < 42)
+                    nFeature_RNA > feature_min & nFeature_RNA < feature_max & 
+                    nCount_RNA > count_min & nCount_RNA < count_max & percent.ribo < 5)
+rm(raw_ann)
 ```
 
+Find very low expressed genes
+```{r gene_counts_density}
+gene_counts <- data.frame(counts = rowSums(data.frame(GetAssayData(adata))))
+
+ggplot(gene_counts) + geom_density(aes (x = log10(counts)))# + scale_x_continuous(limits = c(0,1000))
+```
+
+Remove quantile 0.01
 ```{r}
-# Final filtering step: At least 3 cells need to express a gene
-adata <- CreateSeuratObject(adata@assays$RNA@counts, min.cells = 3, meta.data = adata@meta.data)
+min_gene_counts <- quantile(gene_counts$counts, probs = 0.01)
+adata <- subset(adata, features = rownames(gene_counts)[gene_counts$counts > min_gene_counts])
 ```
 
-## After filtering
+```{r QC_after_filtering, fig.width=12, fig.height=10}
+p1 <- VlnPlot(adata, 
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
+        ncol = 4)
+p2 <- FeatureScatter(adata, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "Stage")
+
+CombinePlots(plots = list(p1,p2), ncol = 1)
+```
 
 ```{r}
 print(paste0("After filtering: ", dim(adata)[2], " cells ",  dim(adata)[1], " genes"))
-```
-
-```{r, fig.width=10}
-VlnPlot(adata, 
-        features = c("nFeature_RNA", "nCount_RNA", "percent.mito", "percent.ribo"),
-        ncol = 4)
 ```
 
 # Normalization
@@ -133,6 +152,16 @@ adata <- CellCycleScoring(adata, s.features = cc$s.genes, g2m.features = cc$g2m.
 
 ```{r}
 adata <- RunPCA(adata, features = VariableFeatures(object = adata), seed.use = random_seed)
+```
+
+```{r PCA_loadings, fig.height = 5}
+pcalod_1 <- VizDimLoadings(object = adata, dims = 1) + theme(axis.text.y = element_text(size = 8)) 
+pcalod_2 <- VizDimLoadings(object = adata, dims = 2) + theme(axis.text.y = element_text(size = 8))
+
+CombinePlots(plots = list(pcalod_1, pcalod_2), ncol = 2)
+```
+
+```{r PCA_plot, fig.height=5, fig.width=8}
 DimPlot(adata, reduction = "pca", group.by = c('Stage'))
 ```
 
@@ -152,7 +181,7 @@ adata <- RunUMAP(adata, dims = 1:20, seed.use = random_seed)
 
 ## UMAP
 
-```{r, fig.width=10}
+```{r UMAP, fig.width=10}
 p1 <- DimPlot(adata, reduction = "umap", group.by = 'Stage')
 p2 <- DimPlot(adata, reduction = "umap")
 p1 + p2
@@ -160,10 +189,28 @@ p1 + p2
 
 ## TSNE
 
-```{r, fig.width=10}
+```{r TSNE, fig.width=10}
 p3 <- DimPlot(adata, reduction = "tsne", group.by = 'Stage')
 p4 <- DimPlot(adata, reduction = "tsne")
 p3 + p4
+```
+
+# scViz
+
+Factor preparation for scViz
+```{r}
+cell_metadata <- adata@meta.data
+sapply(cell_metadata,class)
+```
+
+```{r}
+cell_metadata <- cell_metadata %>% mutate_if(is.character,as.factor)
+adata@meta.data <- cell_metadata
+```
+
+```{r}
+saveRDS(adata, file = "../../../services/scRNAviz/data/XXXXX.rds")
+saveRDS(adata, file = "../data/processed/XXXXX.rds")
 ```
 
 # Session info
