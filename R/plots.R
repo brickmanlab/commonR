@@ -1,3 +1,20 @@
+#' Helper function for `plot_significant`
+#'
+#' @param pval
+#' @param asterisk Boolean flag
+#' @param pos_only Boolean flag
+#' @param asterisk Replace p-values with asterisks (Default: False)
+#' 
+#' @keywords internal
+map_significance <- function(pval, asterisk, pos_only){
+
+  if (pval < 0.001) return (ifelse(asterisk, "***", pval))
+  if (pval < 0.01) return (ifelse(asterisk, "**", pval))
+  if (pval < 0.05) return (ifelse(asterisk, "*", pval))
+
+  return (ifelse(pos_only, NA, "ns"))
+}
+
 #' Visualize Violin plot with significance
 #'
 #' @importFrom dplyr "%>%"
@@ -5,17 +22,24 @@
 #' @param gene Gene of interest
 #' @param conditions Specify which conditions to compare, otherwise use 
 #' ones specified with `Idents()` (Default: NULL)
+#' @param test Test (wilcox.test, t.test or custom func) (Default: wilcox.test)
 #' @param asterisk Replace p-values with asterisks (Default: False)
+#' @param pos_only Display only significant results (Default: False)
+#' @param plot_type Type of plot: violin, boxplot or jitter (Default: violin)
+#' @param add_jitter Display points (Default: False)
 #' 
 #' @import ggplot2 ggsignif
 #' 
 #' @export
-plot_violin_sig <- function(seu, gene, conditions=NULL, asterisk=F) {
-  
+plot_significant <- function(seu, gene, conditions=NULL, 
+                             test='wilcox.test', asterisk=F, pos_only=F, 
+                             plot_type='violin', add_jitter=F) {
+
   df <- NULL
   if (is.null(conditions)) {
     conditions <- as.vector(unique(Seurat::Idents(seu)))
   }
+
   for (con in conditions) {
     cond <- seu[gene, Seurat::Idents(seu) == con]
     cond_df <- data.frame(
@@ -25,15 +49,29 @@ plot_violin_sig <- function(seu, gene, conditions=NULL, asterisk=F) {
     rownames(cond_df) <- colnames(cond)
     df <- rbind(df, cond_df)
   }
-  
-  p <- ggplot(data=df, aes(x=factor(group, levels = conditions), y=gene)) + 
-    geom_violin(aes(fill=group)) +
-    geom_jitter(height = 0, width = 0.1) +
-    geom_signif(comparisons = utils::combn(conditions, 2, simplify = F),
-                map_signif_level = asterisk, textsize=5, test = 'wilcox.test',
-                step_increase = .1) +
-    labs(x = gene, y = '')
-  
+
+  p <- ggplot(data=df, aes(x=factor(group, levels = conditions), y=gene))
+
+  if (plot_type == 'violin') {
+    p <- p + geom_violin(aes(fill=group))
+  } else if (plot_type == 'boxplot') {
+    p <- p + geom_boxplot(aes(fill=group))
+  } else if (plot_type == 'jitter') {
+    p <- p + geom_jitter(aes(fill=group))
+  }
+
+  if (add_jitter) {
+    p <- p + geom_jitter(height = 0, width = 0.1)
+  }
+
+  p <- p + geom_signif(
+    comparisons = utils::combn(conditions, 2, simplify = F),
+    textsize=5, 
+    test = 'wilcox.test',
+    step_increase = .1,
+    map_signif_level=function(x) { return(map_significance(x, asterisk, pos_only)) } 
+    ) + labs(x = gene, y = '')
+
   return (p)
 }
 
